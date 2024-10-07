@@ -74,9 +74,12 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-// Routes API pour les fichiers et les données
+// Servir les fichiers statiques depuis le dossier "uploads"
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Route d'upload de fichier
 app.post('/api/upload', upload.single('file'), (req, res) => {
-  const imageUrl = req.file.path;
+  const imageUrl = `/uploads/${req.file.filename}`; // URL de l'image
   res.json({ url: imageUrl }); // Répondre avec l'URL de l'image
 });
 
