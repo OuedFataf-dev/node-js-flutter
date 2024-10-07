@@ -22,16 +22,19 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
+// Middleware pour servir les fichiers statiques du dossier "images"
+router.use('/images', express.static(path.join(__dirname, uploadDir)));
+
 // Point de terminaison pour gérer les téléchargements de fichiers
 router.post('/api', upload.single('file'), (req, res) => {
-  const imageUrl = req.file.path; // Obtenez le chemin du fichier téléchargé
-  res.json({ url: imageUrl });
+  const imageUrl = `/images/${req.file.filename}`; // Modifiez le chemin ici pour inclure "/images/"
+  res.json({ url: imageUrl }); // Retourne l'URL publique de l'image
 });
 
 // Point de terminaison pour recevoir des données et les enregistrer dans MongoDB
 router.post('/endpoint', async (req, res) => {
   const { imageUrl, price } = req.body;
-  
+
   // Accédez à la base de données à partir de req.app.locals
   const db = req.app.locals.db;
 
