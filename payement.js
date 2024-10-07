@@ -27,22 +27,26 @@ router.post("/create-order", async (req, res) => {
 
   try {
     const db = req.app.locals.db;
+
+    // Créez un ID de commande unique
     const orderId = `order_${new Date().getTime()}`;
-    
+
+    // Préparez les données de la commande
     const orderData = {
       amount,
       currency,
-      orderId,
+      order_id: orderId, // Utilisez 'order_id' pour que cela soit cohérent lors de la recherche
       createdAt: new Date(),
-      status: 'en attente',
+      status: 'en attente', // Changer le statut ici si nécessaire
       estimate_delivery_time: '30 minutes',
     };
 
+    // Insérez la commande dans la base de données
     const result = await db.collection('orders').insertOne(orderData);
 
     if (result.acknowledged) {
       res.status(200).send({
-        order_id: orderId,
+        order_id: orderId, // Renvoie l'ID de commande
         message: "Commande créée avec succès",
       });
     } else {
@@ -51,6 +55,7 @@ router.post("/create-order", async (req, res) => {
       });
     }
   } catch (error) {
+    console.error("Erreur lors de la création de la commande:", error);
     res.status(500).send({
       error: "Une erreur est survenue lors de la création de la commande",
     });

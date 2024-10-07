@@ -1,51 +1,32 @@
 const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 
-
-const port = 5000;
 const router = express.Router();
-
-// Middleware pour analyser le JSON
-
-
-// Configuration de la base de données et des clés secrètes
-const uri = process.env.MONGO_URI || "mongodb+srv://fataf1391:A4jWuwk14MsmpfdN@cluster0.palkq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
-let db;
-let client;
-
-// Fonction pour se connecter à MongoDB
-async function connectToMongoDB() {
-  try {
-    client = new MongoClient(uri);
-    await client.connect();
-    db = client.db('maBaseDeDonnees');  // Nom de la base de données
-    app.locals.db = db; // Ajoutez cette ligne
-    console.log('Connecté à MongoDB');
-  } catch (err) {
-    console.error('Erreur de connexion à MongoDB:', err);
-    process.exit(1);  // Quitter en cas d'échec de connexion
-  }
-}
-
 // Route pour obtenir le statut d'une commande
 router.get("/order-status/:orderId", async (req, res) => {
     const { orderId } = req.params;
 
     try {
-        const commande = await db.collection('orders').findOne({ _id: new ObjectId(orderId) });
+        const db = req.app.locals.db;
+
+        // Recherchez par 'order_id'
+        const commande = await db.collection('orders').findOne({ order_id: orderId });
+
         if (commande) {
             res.json({
-                order_id: commande._id,
+                order_id: commande.order_id, // Utilisez le même champ que lors de l'insertion
                 status: commande.status,
-                estimate_delivery_time: commande.estimate_delivery_time || '30 minutes', // Valeur par défaut si non défini
+                estimate_delivery_time: commande.estimate_delivery_time || '30 minutes',
             });
         } else {
             res.status(404).json({ message: "Commande non trouvée" });
         }
     } catch (error) {
+        console.error("Erreur lors de la récupération du statut:", error);
         res.status(500).json({ message: "Erreur lors de la récupération du statut" });
-    }
+    } 
 });
+
 
 // Route pour mettre à jour le statut d'une commande
 router.put("/update-status/:orderId", async (req, res) => {
@@ -53,6 +34,7 @@ router.put("/update-status/:orderId", async (req, res) => {
     const { status } = req.body;
 
     try {
+        const db = req.app.locals.db;
         const result = await db.collection('orders').updateOne(
             { _id: new ObjectId(orderId) },
             { $set: { status: status } }
@@ -64,9 +46,9 @@ router.put("/update-status/:orderId", async (req, res) => {
             res.status(404).json({ message: "Commande non trouvée" });
         }
     } catch (error) {
+        console.error("Erreur lors de la mise à jour du statut:", error);
         res.status(500).json({ message: "Erreur lors de la mise à jour du statut" });
     }
 });
 
-
-module.exports = router;
+module.exports = router; // N'oubliez pas d'exporter le routeur
