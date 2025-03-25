@@ -27,8 +27,8 @@ async function recupererRepas(db) {
 
 // Endpoint to add a meal
 router.post('/ajouter-meals', async (req, res) => {
-    const { name, price, minute, imageUrl,note } = req.body;
-    const nouveauRepas = { name, price, minute, imageUrl ,note};
+    const { name, price, minute, imageUrl} = req.body;
+    const nouveauRepas = { name, price, minute, imageUrl};
 
     try {
         const result = await ajouterRepas(nouveauRepas, req.app.locals.db);

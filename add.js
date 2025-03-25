@@ -2,6 +2,7 @@ const express = require('express');
 const fs = require('fs');
 const multer = require('multer');
 const path = require('path');
+
 const router = express.Router();
 
 // Créez le dossier "images" s'il n'existe pas
@@ -16,7 +17,7 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname));
+    cb(null, Date.now() + path.extname(file.originalname)); // Renomme le fichier avec un timestamp
   },
 });
 
@@ -27,13 +28,22 @@ router.use('/images', express.static(path.join(__dirname, uploadDir)));
 
 // Point de terminaison pour gérer les téléchargements de fichiers
 router.post('/api', upload.single('file'), (req, res) => {
-  const imageUrl = `/images/${req.file.filename}`; // Modifiez le chemin ici pour inclure "/images/"
+  if (!req.file) {
+    return res.status(400).json({ message: 'Aucun fichier téléchargé' });
+  }
+  
+  const imageUrl = `/images/${req.file.filename}`;
   res.json({ url: imageUrl }); // Retourne l'URL publique de l'image
 });
 
 // Point de terminaison pour recevoir des données et les enregistrer dans MongoDB
 router.post('/endpoint', async (req, res) => {
-  const { imageUrl, price } = req.body;
+  const { imageUrl, price, description, availability, ingredients, rating, chefId } = req.body;
+
+  // Validation des données requises
+  if (!imageUrl || !price || !description || !availability || !ingredients || !chefId) {
+    return res.status(400).json({ message: 'Tous les champs sont requis' });
+  }
 
   // Accédez à la base de données à partir de req.app.locals
   const db = req.app.locals.db;
@@ -43,6 +53,11 @@ router.post('/endpoint', async (req, res) => {
     const newFileData = {
       imageUrl,
       price,
+      description,
+      availability,
+      ingredients,
+      rating: rating || null, // Le rating peut être facultatif
+      chefId,
     };
 
     // Insérer les données dans la collection 'menu'

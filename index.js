@@ -44,7 +44,7 @@ async function connectToMongoDB() {
   try {
     client = new MongoClient(uri);
     await client.connect();
-    db = client.db('maBaseDeDonnees'); // Nom de la base de données
+    db = client.db('repas'); // Nom de la base de données
     app.locals.db = db; // Passer la base de données dans app.locals
     console.log('Connecté à MongoDB');
   } catch (err) {
@@ -76,18 +76,22 @@ const upload = multer({ storage });
 
 // Servir les fichiers statiques depuis le dossier "uploads"
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
 // Route d'upload de fichier
 app.post('/api/upload', upload.single('file'), (req, res) => {
-  const imageUrl = `/uploads/${req.file.filename}`; // URL de l'image
-  res.json({ url: imageUrl }); // Répondre avec l'URL de l'image
-});
+    const imageUrl = `uploads/${req.file.filename}`; // URL de l'image
+    res.json({ url: imageUrl }); // Répondre avec l'URL de l'image
+  });
+  
 
 app.post('/api/endpoint', async (req, res) => {
-  const { name, imageUrl, price, minute } = req.body;
+  const { name, imageUrl, price, minute,description,
+      rating,
+    commentaire } = req.body;
   try {
     const mealsCollection = db.collection('meals');
-    const newFileData = { name, imageUrl, price, minute };
+    const newFileData = { name, imageUrl, price, minute ,description,
+      rating,
+    commentaire };
     await mealsCollection.insertOne(newFileData);
     res.status(200).json({ message: 'Données enregistrées avec succès' });
   } catch (error) {
@@ -179,63 +183,86 @@ const transporter = nodemailer.createTransport({
   },
 });
 app.post('/api/forgot-password', async (req, res) => {
-  const { email } = req.body;
-  console.log('Email reçu :', email);  // Log l'email pour vérifier la requête
-  try {
-    const user = await db.collection('users').findOne({ email });
-    if (!user) {
-      console.log('Utilisateur non trouvé');
-      return res.status(400).json({ message: 'Utilisateur non trouvé' });
+    const { email } = req.body;
+    console.log('Email reçu :', email);  // Log l'email pour vérifier la requête
+    try {
+      const user = await db.collection('users').findOne({ email });
+      if (!user) {
+        console.log('Utilisateur non trouvé');
+        return res.status(400).json({ message: 'Utilisateur non trouvé' });
+      }
+      console.log('Utilisateur trouvé :', user);
+      
+      // Génération du token et envoi de l'e-mail
+      const token = crypto.randomBytes(32).toString('hex');
+      const resetPasswordExpires = Date.now() + 3600000; // 1 heure
+      await db.collection('users').updateOne(
+        { email },
+        { $set: { resetPasswordToken: token, resetPasswordExpires } }
+      );
+      
+      // Corrected string interpolation
+      const resetUrl = `${process.env.BASE_URL}/reset-password/${token}`; // Ensure BASE_URL is set in your .env file
+      
+      const mailOptions = {
+        to: user.email,
+        from: process.env.EMAIL_USER,
+        subject: 'Réinitialisation du mot de passe',
+        text: `Cliquez sur ce lien pour réinitialiser votre mot de passe : ${resetUrl}`,
+      };
+      
+      await transporter.sendMail(mailOptions);
+      console.log('Email envoyé avec succès');
+      res.json({ message: 'Email de réinitialisation envoyé' });
+    } catch (error) {
+      console.error('Erreur dans la route forgot-password :', error);  // Log de l'erreur
+      res.status(500).json({ error: 'Erreur du serveur' });
     }
-    console.log('Utilisateur trouvé :', user);
-    
-    // Génération du token et envoi de l'e-mail
-    const token = crypto.randomBytes(32).toString('hex');
-    const resetPasswordExpires = Date.now() + 3600000; // 1 heure
-    await db.collection('users').updateOne(
-      { email },
-      { $set: { resetPasswordToken: token, resetPasswordExpires } }
-    );
-    
-    const resetUrl = `${process.env.BASE_URL}/reset-password/${token}`;
-    const mailOptions = {
-      to: user.email,
-      from: process.env.EMAIL_USER,
-      subject: 'Réinitialisation du mot de passe',
-      text: `Cliquez sur ce lien pour réinitialiser votre mot de passe : ${resetUrl}`,
-    };
-    
-    await transporter.sendMail(mailOptions);
-    console.log('Email envoyé avec succès');
-    res.json({ message: 'Email de réinitialisation envoyé' });
-  } catch (error) {
-    console.error('Erreur dans la route forgot-password :', error);  // Log de l'erreur
-    res.status(500).json({ error: 'Erreur du serveur' });
-  }
-});
-// Route pour accéder à la page de réinitialisation du mot de passe
-app.get('/api/reset-password/:token', async (req, res) => {
+  });
+  
+
+
+app.post('/reset-password/:token', async (req, res) => {
   const { token } = req.params;
+  const { password } = req.body;
+
+  console.log('Token reçu pour vérification:', token);
+  console.log('Corps de la requête:', req.body);
 
   try {
-    // Vérifier si le token est valide
     const user = await db.collection('users').findOne({
       resetPasswordToken: token,
-      resetPasswordExpires: { $gt: Date.now() }, // Vérifier que le token n'a pas expiré
+      resetPasswordExpires: { $gt: Date.now() },
     });
 
     if (!user) {
       return res.status(400).json({ message: 'Token invalide ou expiré' });
     }
 
-    // Si le token est valide, renvoyer une page ou un message pour permettre à l'utilisateur de réinitialiser le mot de passe
-    res.status(200).send('Vous pouvez maintenant réinitialiser votre mot de passe');
-    // Vous pouvez aussi rediriger vers une page frontend si vous utilisez un framework comme React, Angular, ou une autre solution pour afficher le formulaire
+    // Vérifiez si le mot de passe est défini
+    if (!password) {
+      return res.status(400).json({ message: 'Le mot de passe est requis.' });
+    }
+
+    console.log('Mot de passe à hacher:', password);
+    
+    const hashedPassword = await bcrypt.hash(password, 10); // Le '10' est le nombre de rounds
+    await db.collection('users').updateOne(
+      { resetPasswordToken: token },
+      {
+        $set: { password: hashedPassword },
+        $unset: { resetPasswordToken: "", resetPasswordExpires: "" },
+      }
+    );
+
+    res.json({ message: 'Mot de passe réinitialisé avec succès' });
   } catch (error) {
-    console.error('Erreur lors de la récupération du token:', error);
+    console.error('Erreur lors de la réinitialisation du mot de passe:', error);
     res.status(500).json({ error: 'Erreur du serveur' });
   }
 });
+
+
 // Utilisation des routeurs importés
 app.use('/meals', mealsRouter);
 app.use('/menu', menuRouter);
@@ -250,5 +277,5 @@ const PORT = process.env.PORT || 5000;
 const HOST = '0.0.0.0'; // Écouter sur toutes les interfaces
 
 app.listen(PORT, HOST, () => {
-  console.log(`Le serveur fonctionne sur http://${HOST}:${PORT}`);
+    console.log(`Le serveur fonctionne sur http://${HOST}:${PORT}`);
 });

@@ -3,9 +3,8 @@ const { MongoClient, ObjectId } = require('mongodb');
 const router = express.Router();// Import MongoDB Client
 
 const app = express();
-app.use(express.json());
 
-const port = process.env.PORT || 5000; // Port par défaut
+const port = process.env.PORT || 5000; // Port par défaut    ,
 
 // Configuration de la base de données et des clés secrètes
 const uri = process.env.MONGO_URI || "mongodb+srv://fataf1391:A4jWuwk14MsmpfdN@cluster0.palkq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";

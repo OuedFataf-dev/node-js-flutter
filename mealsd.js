@@ -27,25 +27,6 @@ async function connectToMongoDB() {
   }
 }
 
-// Endpoint API pour obtenir les détails d'un repas par ID
-app.get('/mealsdetail/:id', async (req, res) => {
-  const menuCollection = db.collection('meals'); // Collection "meals"
-  
-  try {
-    // Trouver le repas par son ID
-    const mealDetail = await menuCollection.findOne({ _id: new ObjectId(req.params.id) });
-    
-    if (!mealDetail) {
-      return res.status(404).json({ message: 'Meal not found' });
-    }
-
-    // Retourner les détails du repas
-    res.json(mealDetail);
-  } catch (error) {
-    console.error('Error retrieving meal details:', error);
-    res.status(500).json({ message: 'Server error', error });
-  }
-});
 
 // Lancer le serveur après la connexion à MongoDB
 connectToMongoDB().then(() => {
